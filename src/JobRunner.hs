@@ -43,4 +43,6 @@ class Monad m => JobExecutor m where
 
   cancelJob :: JobId -> m ()
 
-  setResultsConsumer :: JobId -> (result -> m (ConsumingResult err)) -> m ()
+  setResultsConsumer :: JobId -> Maybe (result -> m (ConsumingResult err)) -> m ()
+
+  getJobState :: JobId -> m JobState

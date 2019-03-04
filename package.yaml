@@ -25,6 +25,7 @@ dependencies:
 - containers
 - stm
 - text
+- time
 
 library:
   source-dirs: src

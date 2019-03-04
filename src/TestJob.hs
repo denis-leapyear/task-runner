@@ -15,26 +15,38 @@ executeTest :: IO ()
 executeTest = do
   threadId <- myThreadId
 
-  cancellationFlag <- liftIO $ atomically $ newTVar False
   jobId <- startJob initTestJob
-  putStrLn $ show threadId ++ " | startJob called"
+  initialJobState <- getJobState jobId
+  putStrLn $ show threadId ++ " | startJob called " ++ show initialJobState
 
-  threadDelay 150000
-  printJobInfos "After 150 | "
+  threadDelay 1500000
+  printJobInfos ""
 
-  setResultsConsumer jobId $ \result -> do
+  setResultsConsumer jobId $ Just $ \result -> do
     threadId <- myThreadId
-    putStrLn $ show threadId ++ " | RESULT: " ++ result
+    putStrLn $ show threadId ++ " | RESULT1: " ++ result
+    pure Processed
+
+  threadDelay 50000
+  printJobInfos ""
+
+  setResultsConsumer jobId Nothing
+
+  threadDelay 10000000
+  printJobInfos "Long wait | "
+
+  setResultsConsumer jobId $ Just $ \result -> do
+    threadId <- myThreadId
+    putStrLn $ show threadId ++ " | RESULT2: " ++ result
     pure Processed
 
   threadDelay 100000
-  printJobInfos "After 250 | "
 
   cancelJob jobId
   putStrLn $ show threadId ++ " | CANCELLED"
 
   threadDelay 100000
-  printJobInfos "After 350 | "
+  printJobInfos "End | "
 
 
 data TestJobError =
@@ -72,9 +84,15 @@ executeTestJob jobId cancellationFlag JobOps{..} = do
           else do
             liftIO $ threadDelay 100000
             liftIO $ putStrLn $ show threadId ++ " | Job " ++ show jobId ++ ", Step " ++ show i
+            setJobState JobResultsReady
             getResultsConsumer >>= \case
-              Nothing -> pure ()
-              Just consumeResults -> void $ consumeResults $ "Results from step " ++ show i
+              Nothing -> do
+                liftIO $ putStrLn $ show threadId ++ " | Job " ++ show jobId ++ " has no consumer"
+                pure ()
+              Just consumeResults -> do
+                setJobState JobResultsReturning
+                void $ consumeResults $ "Results from step " ++ show i
+            setJobState JobExecuting
       ) [1..5]
 
 

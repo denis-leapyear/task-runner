@@ -9,6 +9,7 @@ import Data.IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Text (Text)
+import Data.Time.Clock
 import System.IO.Unsafe (unsafePerformIO)
 
 import JobRunner
@@ -74,10 +75,36 @@ getJobInfo jobId = do
     Nothing -> error "cannot find JobInfo"
     Just jobInfoTVar -> atomically $ readTVar jobInfoTVar
 
+
+getJobInfoTVar :: JobId -> IO (TVar (JobInfo m err result))
+getJobInfoTVar jobId = do
+  jobInfos <- readIORef jobMapIORef
+  case (Map.lookup jobId jobInfos) of
+    Nothing -> error "cannot find JobInfo"
+    Just jobInfoTVar -> pure jobInfoTVar
+
+
+waitForResultsConsumer
+  :: Monad m
+  => JobId
+  -> IO (Maybe (result -> m (ConsumingResult err)))
+waitForResultsConsumer jobId = do
+  jobInfoTVar <- getJobInfoTVar jobId
+  atomically $ do
+    JobInfo{..} <- readTVar jobInfoTVar
+    case jobInfoResultsConsumer of
+      Nothing ->
+        if jobInfoJobState == JobResultsReady
+          then retry
+          else pure Nothing
+      Just resultsConsumer -> pure $ Just resultsConsumer
+
+
 instance JobExecutor IO where
   startJob = startJobImpl
   cancelJob = cancelJobImpl
   setResultsConsumer = setResultsConsumerImpl
+  getJobState = getJobStateImpl
 
 startJobImpl
   :: (m ~ IO, Show err)
@@ -102,9 +129,7 @@ startJobImpl getJobDefinition = do
   forkIO $ do
     executionResult <- jobDefinitionExecutionAction
       JobOps
-        { getResultsConsumer = do
-            JobInfo{..} <- getJobInfo jobId
-            pure jobInfoResultsConsumer
+        { getResultsConsumer = waitForResultsConsumer jobId
         , setJobState = updateJobState jobId
         , setJobStateToFailed = failJob jobId
         }
@@ -123,23 +148,34 @@ cancelJobImpl jobId = do
       jobInfoCancellationAction
 
 
-setResultsConsumerImpl :: JobId -> (result -> m (ConsumingResult err)) -> IO ()
+setResultsConsumerImpl :: JobId -> Maybe (result -> m (ConsumingResult err)) -> IO ()
 setResultsConsumerImpl jobId resultsConsumer = do
   jobInfos <- readIORef jobMapIORef
   case (Map.lookup jobId jobInfos) of
     Nothing -> error "cannot find JobInfo"
     Just jobInfoTVar -> do
       atomically $ modifyTVar jobInfoTVar $ \JobInfo{..} ->
-        JobInfo{jobInfoResultsConsumer = Just resultsConsumer, ..}
+        JobInfo{jobInfoResultsConsumer = resultsConsumer, ..}
+
+
+getJobStateImpl :: JobId -> IO JobState
+getJobStateImpl jobId = do
+  jobInfos <- readIORef jobMapIORef
+  case (Map.lookup jobId jobInfos) of
+    Nothing -> pure JobFinished
+    Just jobInfoTVar -> do
+      JobInfo{..} <- atomically $ readTVar jobInfoTVar
+      pure jobInfoJobState
 
 
 -- Helpers
 printJobInfos :: String -> IO ()
 printJobInfos prefix = do
   threadId <- myThreadId
-
   jobInfoTVars <- Map.elems <$> readIORef jobMapIORef
-  putStrLn $ show threadId ++ " | " ++ prefix ++ "JobInfos (" ++ show (length jobInfoTVars) ++ "):"
+  now <- getCurrentTime
+  putStrLn $ show threadId ++ " | " ++ show now ++ " | " ++
+    prefix ++ "JobInfos (" ++ show (length jobInfoTVars) ++ "):"
   forM_ jobInfoTVars $ \jobInfoTVar -> do
     jobInfo <- atomically $ readTVar jobInfoTVar
     putStrLn $ show threadId ++ " |   " ++ showJobInfo jobInfo
