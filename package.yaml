@@ -30,12 +30,20 @@ dependencies:
 library:
   source-dirs: src
   default-extensions:
+  - ConstrainedClassMethods
+  - DataKinds
+  - FlexibleContexts
+  - FlexibleInstances
   - GADTs
+  - GeneralizedNewtypeDeriving
+  - KindSignatures
   - LambdaCase
+  - MultiParamTypeClasses
   - OverloadedStrings
   - RankNTypes
   - RecordWildCards
   - ScopedTypeVariables
+  - TypeFamilies
 
 executables:
   task-async-exe:
@@ -48,12 +56,20 @@ executables:
     dependencies:
     - task-async
     default-extensions:
+    - ConstrainedClassMethods
+    - DataKinds
+    - FlexibleContexts
+    - FlexibleInstances
     - GADTs
+    - GeneralizedNewtypeDeriving
+    - KindSignatures
     - LambdaCase
+    - MultiParamTypeClasses
     - OverloadedStrings
     - RankNTypes
     - RecordWildCards
     - ScopedTypeVariables
+    - TypeFamilies
 
 tests:
   task-async-test:
@@ -66,9 +82,18 @@ tests:
     dependencies:
     - task-async
     default-extensions:
+    - ConstrainedClassMethods
+    - DataKinds
+    - FlexibleContexts
+    - FlexibleInstances
     - GADTs
+    - GADTs
+    - GeneralizedNewtypeDeriving
+    - KindSignatures
     - LambdaCase
+    - MultiParamTypeClasses
     - OverloadedStrings
     - RankNTypes
     - RecordWildCards
     - ScopedTypeVariables
+    - TypeFamilies

@@ -19,7 +19,7 @@ executeTest = do
   initialJobState <- getJobState jobId
   putStrLn $ show threadId ++ " | startJob called " ++ show initialJobState
 
-  threadDelay 1500000
+  threadDelay 100000
   printJobInfos ""
 
   setResultsConsumer jobId $ Just $ \result -> do
@@ -32,13 +32,16 @@ executeTest = do
 
   setResultsConsumer jobId Nothing
 
-  threadDelay 10000000
+  threadDelay 1000000
   printJobInfos "Long wait | "
 
   setResultsConsumer jobId $ Just $ \result -> do
     threadId <- myThreadId
     putStrLn $ show threadId ++ " | RESULT2: " ++ result
     pure Processed
+
+--   setResultsConsumer jobId (Just consumeResult)
+
 
   threadDelay 100000
 
@@ -47,6 +50,13 @@ executeTest = do
 
   threadDelay 100000
   printJobInfos "End | "
+
+
+consumeResult :: (Monad m, MonadIO m) => Int -> m (ConsumingResult err)
+consumeResult result = do
+    threadId <- liftIO $ myThreadId
+    liftIO $ putStrLn $ show threadId ++ " | RESULT22: " ++ show result
+    pure Processed
 
 
 data TestJobError =

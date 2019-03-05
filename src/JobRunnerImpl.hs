@@ -101,6 +101,8 @@ waitForResultsConsumer jobId = do
 
 
 instance JobExecutor IO where
+  type JobResult IO = String
+
   startJob = startJobImpl
   cancelJob = cancelJobImpl
   setResultsConsumer = setResultsConsumerImpl
