@@ -32,6 +32,7 @@ library:
   default-extensions:
   - ConstrainedClassMethods
   - DataKinds
+  - ExistentialQuantification
   - FlexibleContexts
   - FlexibleInstances
   - GADTs
@@ -39,10 +40,12 @@ library:
   - KindSignatures
   - LambdaCase
   - MultiParamTypeClasses
+  - NamedFieldPuns
   - OverloadedStrings
   - RankNTypes
   - RecordWildCards
   - ScopedTypeVariables
+  - TypeApplications
   - TypeFamilies
 
 executables:
@@ -58,6 +61,7 @@ executables:
     default-extensions:
     - ConstrainedClassMethods
     - DataKinds
+    - ExistentialQuantification
     - FlexibleContexts
     - FlexibleInstances
     - GADTs
@@ -65,10 +69,12 @@ executables:
     - KindSignatures
     - LambdaCase
     - MultiParamTypeClasses
+    - NamedFieldPuns
     - OverloadedStrings
     - RankNTypes
     - RecordWildCards
     - ScopedTypeVariables
+    - TypeApplications
     - TypeFamilies
 
 tests:
@@ -84,6 +90,7 @@ tests:
     default-extensions:
     - ConstrainedClassMethods
     - DataKinds
+    - ExistentialQuantification
     - FlexibleContexts
     - FlexibleInstances
     - GADTs
@@ -92,8 +99,10 @@ tests:
     - KindSignatures
     - LambdaCase
     - MultiParamTypeClasses
+    - NamedFieldPuns
     - OverloadedStrings
     - RankNTypes
     - RecordWildCards
     - ScopedTypeVariables
+    - TypeApplications
     - TypeFamilies

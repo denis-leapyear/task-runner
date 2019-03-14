@@ -108,6 +108,7 @@ instance JobExecutor IO where
   setResultsConsumer = setResultsConsumerImpl
   getJobState = getJobStateImpl
 
+
 startJobImpl
   :: (m ~ IO, Show err)
   => (JobId -> m (JobDefinition m err result))
@@ -183,4 +184,3 @@ printJobInfos prefix = do
     putStrLn $ show threadId ++ " |   " ++ showJobInfo jobInfo
   where
     showJobInfo JobInfo{..} = "  " ++ show jobInfoJobId ++ "," ++ show jobInfoJobState
-
