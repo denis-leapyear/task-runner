@@ -20,6 +20,8 @@ someFunc = do
   putStrLn $ "Started job: " ++ show jobId
   tVar <- readIORef ref
   threadDelay 3000000
+
+  -- set result consumer after some delay
   atomically $ modifyTVar tVar $ \case
     Nothing -> error "no job info"
     Just JobInfo{..} ->
@@ -28,33 +30,47 @@ someFunc = do
       in case realFuncTypeRep `eqTypeRep` funcTypeRep of
            Nothing -> Nothing
            Just HRefl -> Just JobInfo { maybeResultsConsumer = Just consumeResultsImpl, ..}
+
   threadDelay 5000000
+
+
+-- Job's result consumer (set in a protocol handler, like Async Select)
+consumeResultsImpl :: Res -> IO ConsumingResult
+consumeResultsImpl res = do
+  putStrLn $ "consumeResultsImpl: " ++ show res
+  pure Processed
+
+
 
 {-# NOINLINE ref #-}
 ref :: IORef (TVar (Maybe JobInfo))
 ref = unsafePerformIO $ (atomically $ newTVar Nothing) >>= newIORef
 
 
+type AsyncJobId = Int
+
 data ConsumingResult = Processed | NotReady | Failed
   deriving Show
 
+-- operations available for Job implementations
 data JobOps = forall result. (Typeable result) => JobOps
   { consumeResults :: result -> IO ConsumingResult
   }
 
+-- job definitions provided by Job implementations
 data JobDef result = JobDef
   { getJobDescription     :: String
   , executeJob            :: JobOps -> IO ()
   , resultsConsumer       :: result -> IO ConsumingResult
   }
 
-type AsyncJobId = Int
-
+-- information about running Jobs kept by job executor
 data JobInfo = forall result. (Typeable result) => JobInfo
   { jobId :: AsyncJobId
   , maybeResultsConsumer :: Maybe (result -> IO ConsumingResult)
   }
 
+-- job executor's interface: start a job
 start
   :: forall result m. (Typeable result, MonadIO m)
   => (AsyncJobId -> m (JobDef result))
@@ -65,7 +81,7 @@ start initJob = do
   liftIO $ do
 
     let jobInfo = JobInfo
-          { jobId = 5
+          { jobId = jId
           , maybeResultsConsumer = (Nothing :: Maybe (result -> IO ConsumingResult))
           }
 
@@ -77,6 +93,7 @@ start initJob = do
     pure jId
 
 
+-- =================== helper functions for Job implementers
 waitingConsumeResultsImpl
   :: forall result. (Typeable result)
   => AsyncJobId -> result -> IO ConsumingResult
@@ -105,31 +122,37 @@ waitForResultsConsumer jobId = do
   putStrLn "          GOT IT"
   pure rc
 
+executeResultsConsumer
+  :: forall concreteresult result. (Typeable concreteresult, Typeable result)
+  => concreteresult -> (result -> IO ConsumingResult) -> IO ()
+executeResultsConsumer res consumeResults = do
+  let funcTypeRep = typeOf consumeResults
+  let funcResultTypRep = typeOf (undefined :: IO ConsumingResult)
+  let funcSigTypeRep = Fun (typeOf res) funcResultTypRep
+  case funcSigTypeRep `eqTypeRep` funcTypeRep of
+    Nothing -> do
+      putStrLn "executeJobImpl: No Match"
+    Just HRefl -> do
+      consumeResults res
+      putStrLn "executeJobImpl: Match"
+
+-- =============== a Job implementation
+
+-- a result
 data Res = Res1 | Res2
   deriving Show
 
+-- job initiation function (passed to job executor's 'start' function)
 initJob :: MonadIO m => AsyncJobId -> m (JobDef Res)
 initJob jobId = pure JobDef
   { getJobDescription = "testjob" ++ show jobId
   , executeJob = executeJobImpl
   , resultsConsumer = waitingConsumeResultsImpl jobId
-
   }
 
+-- main Job's body
 executeJobImpl :: JobOps -> IO ()
 executeJobImpl jobOps@JobOps{..} = do
   threadDelay 1000
   putStrLn "executeJobImpl"
-  let funcSigTypeRep = typeOf consumeResults
-  let funcTypeRep = typeOf (undefined :: Res -> IO ConsumingResult)
-  case funcSigTypeRep `eqTypeRep` funcTypeRep of
-    Nothing -> do
-      putStrLn "executeJobImpl: No Match"
-    Just HRefl -> do
-      consumeResults Res1
-      putStrLn "executeJobImpl: Match"
-
-consumeResultsImpl :: Res -> IO ConsumingResult
-consumeResultsImpl res = do
-  putStrLn $ "consumeResultsImpl: " ++ show res
-  pure Processed
+  executeResultsConsumer Res1 consumeResults
